@@ -1,5 +1,5 @@
-import random
+import hashlib
 
-list1 = [[1,2],3]
-
-print(list1.find(1))
+hs = hashlib.sha256()
+hs.update('aklsjdklasjdklasjd')
+print(hs)

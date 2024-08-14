@@ -1,4 +1,4 @@
-from server.server import Server
+from KeyServer.server import Server
 
 
 server = Server()

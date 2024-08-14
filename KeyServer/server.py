@@ -1,11 +1,9 @@
 import socket
 import threading
 import json
-import time
 import hashlib
 import random
-from uuid import UUID
-
+import sqlite3
 import jwt
 import uuid
 from datetime import datetime, timedelta
@@ -23,6 +21,7 @@ class Server:
         self.__socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.__connections = list()
         self.__uuids = list()
+        self.__users = list()
         self.__nicknames = list()
         self.__rooms = list()
         self.__chatroom = list()
@@ -47,22 +46,13 @@ class Server:
                 # 解析成json数据
                 obj = json.loads(buffer)
                 # 如果是广播指令
-                if obj['type'] == 'broadcast':
-                    self.__broadcast(obj['sender_id'], obj['message'])
-                elif obj['type'] == 'ChatRoom':
+                if obj['type'] == 'ChatRoom':
                     self.create_token(obj['message'])
                 elif obj['type'] == 'Join':
                     token = obj['message']
                     if self.__rooms.index(token):
                         print('找到房间')
 
-                elif obj['type'] == 'logout':
-                    print('[Server] 用户', user_id, nickname, '退出聊天室')
-                    self.__broadcast(message='用户 ' + str(nickname) + '退出聊天室')
-                    self.__connections[user_id].close()
-                    self.__connections[user_id] = None
-                    self.__nicknames[user_id] = None
-                    break
                 else:
                     print('[Server] 无法解析json数据包:', connection.getsockname(), connection.fileno())
             except Exception:
@@ -70,20 +60,6 @@ class Server:
                 self.__connections[user_id].close()
                 self.__connections[user_id] = None
                 self.__nicknames[user_id] = None
-
-    def __broadcast(self, user_id=0, message=''):
-        """
-        广播
-        :param user_id: 用户id(0为系统)
-        :param message: 广播内容
-        """
-        for i in range(1, len(self.__connections)):
-            if user_id != i and self.__connections[i]:
-                self.__connections[i].send(json.dumps({
-                    'sender_id': user_id,
-                    'sender_nickname': self.__nicknames[user_id],
-                    'message': message
-                }).encode())
 
     def __messaging(self, user_id, message):
         """
@@ -102,6 +78,7 @@ class Server:
                 i += 1
             i += 1
 
+
     def __waitForLogin(self, connection):
         # 尝试接受数据
         # noinspection PyBroadException
@@ -113,8 +90,9 @@ class Server:
             if obj['type'] == 'login':
                 self.__connections.append(connection)
                 uid = uuid.uuid1()
-                self.__nicknames.append(name)
+                self.__nicknames.append(obj['nickname'])
                 self.__uuids.append(uid)
+                self.__users.append((uid, obj['nickname']))
                 connection.send(json.dumps({
                     'id': uid
                 }).encode())
@@ -160,6 +138,9 @@ class Server:
         """
 
     def __generate(self, name):
+        """
+        生成token
+        """
         num = str(random.randint(10**32, 10**33))
         secret_num = ''.join(random.choices(num, k=16))
         key_hash = hashlib.sha256()
@@ -172,14 +153,18 @@ class Server:
             'exp': datetime.now() + timedelta(minutes=30),  # 令牌过期时间
             'username': name_hash  # 想要传递的信息,如用户名ID
         }
-        self.__rooms.append((token, self.__key))
+
         encoded_jwt = jwt.encode(payload, self.__key, algorithm='HS256')
+        self.__rooms.append((encoded_jwt, self.__key))
         self.__key = ''
         return encoded_jwt
 
     def __room_thread(self, user_id, token):
-
-
+        """
+        需加入端口检测机制
+        """
+        port = random.randint(1, 65535)
+"""
     def join_token(self, user_id , token):
         temp_keys = []
         for room in self.__rooms:
@@ -196,6 +181,8 @@ class Server:
                 print('JWT has expired.')
             except jwt.InvalidTokenError:
                 print('Invalid JWT.')
+"""
+
 
 
 
