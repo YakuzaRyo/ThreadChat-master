@@ -89,12 +89,12 @@ class Server:
         except Exception:
             print('[Server] 无法接受数据:', connection.getsockname(), connection.fileno())
 
-    def start(self):
+    def start(self, port, token):
         """
         启动服务器
         """
         # 绑定端口
-        self.__socket.bind(('127.0.0.1', 8888))
+        self.__socket.bind(('127.0.0.1', port))
         # 启用监听
         self.__socket.listen(10)
         print('[Server] 服务器正在运行......')
@@ -109,7 +109,6 @@ class Server:
         while True:
             connection, address = self.__socket.accept()
             print('[Server] 收到一个新连接', connection.getsockname(), connection.fileno())
-
             thread = threading.Thread(target=self.__waitForLogin, args=(connection,))
             thread.setDaemon(True)
             thread.start()

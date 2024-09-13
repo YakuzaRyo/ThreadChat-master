@@ -4,9 +4,6 @@ import json
 import time
 from cmd import Cmd
 
-host = '127.0.0.1'
-port = 8888
-
 
 class Client(Cmd):
     """
@@ -35,6 +32,13 @@ class Client(Cmd):
             try:
                 buffer = self.__socket.recv(1024).decode()
                 obj = json.loads(buffer)
+                if obj['type'] == 'socket':
+                    pt = obj['message']
+                elif obj['type'] == 'goChat':
+                    port = obj['port']
+                    thread = threading.Thread(target=self.start,args=(port,))
+                    thread.setDaemon(True)
+                    thread.start()
                 print('[' + str(obj['sender_nickname']) + '(' + str(obj['sender_id']) + ')' + ']', obj['message'])
             except Exception:
                 print('[Client] 无法从服务器获取数据')
@@ -50,12 +54,10 @@ class Client(Cmd):
             'message': message
         }).encode())
 
-    def start(self):
+    def start(self,host='127.0.0.1',port=8888):
         """
         启动客户端
         """
-        global host
-        global port
         self.__socket.connect((host, port))
         self.cmdloop()
 
@@ -158,8 +160,6 @@ class Client(Cmd):
             print('[Help] login nickname - 登录到聊天室，nickname是你选择的昵称')
             print('[Help] send message - 发送消息，message是你输入的消息')
             print('[Help] logout - 退出聊天室')
-        elif command == 'start':
-            print('[Help] start - 创建聊天房间')
         elif command == 'login':
             print('[Help] login nickname - 登录到聊天室，nickname是你选择的昵称')
         elif command == 'send':
@@ -168,6 +168,8 @@ class Client(Cmd):
             print('[Help] logout - 退出聊天室')
         elif command == 'join':
             print('[Help] join token - 加入指定聊天室')
+        elif command == 'create':
+            print('[Help] create - 创建指定聊天室')
 
         else:
             print('[Help] 没有查询到你想要了解的指令')

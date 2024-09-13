@@ -1,18 +1,8 @@
-import sqlite3
+import sql_use
+from sql.data import database
 
-"""
-
-cur.execute("CREATE TABLE Keys(id INTEGER PRIMARY KEY AUTOINCREMENT,token TEXT,key TEXT)")
-
-"""
-
-
-con = sqlite3.connect('test.db')
-cur = con.cursor()
-# cur.execute("INSERT INTO Keys (token, key) VALUES ('1', '2') ")
-con.commit()
-cur.execute("select key from Keys")
+if __name__ == '__main__':
+    d1 = database()
+    d1.Initialize_Database()
 
 
-key = cur.fetchall()[0][0]
-print(key)
