@@ -15,7 +15,7 @@ class Keys:
         self.__key = key
         self.__id_sha256()
         self.__statement = (self.__id, self.__token, self.__key)
-        con = sqlite3.connect('data.db')
+        con = sqlite3.connect('../KeyServer/data.db')
         cur = con.cursor()
         cur.execute("INSERT INTO Keys(hash, token, key, compute_time) VALUES (?,?,?,datetime())", self.__statement)
         con.commit()
@@ -27,12 +27,13 @@ class Keys:
         使用固定长度的hash值进行查找
         """
         self.__statement = self.__id
-        con = sqlite3.connect('data.db')
+        con = sqlite3.connect('../KeyServer/data.db')
         cur = con.cursor()
         cur.execute("SELECT key, token, status FROM Keys where hash=?",(self.__statement,))
-        self.__key = cur.fetchall()[0][0]
-        self.__token = cur.fetchall()[0][1]
-        self.__status = cur.fetchall()[0][2]
+        debug = cur.fetchall()
+        self.__key = debug[0][0]
+        self.__token = debug[0][1]
+        self.__status = debug[0][2]
         #self.debug = cur.fetchall()
         self.__statement = None
 
@@ -42,7 +43,7 @@ class Keys:
 
     def __token_delete(self, Hash: str):
         self.__statement = Hash
-        con = sqlite3.connect('data.db')
+        con = sqlite3.connect('../KeyServer/data.db')
         cur = con.cursor()
         cur.execute("DELETE  from 'Keys' where hash=?",(self.__statement,))
         con.commit()
@@ -52,7 +53,7 @@ class Keys:
     def status_update(self, status: str):
         self.__status = status
         self.__statement = (self.__id, status)
-        con = sqlite3.connect('data.db')
+        con = sqlite3.connect('../KeyServer/data.db')
         cur = con.cursor()
         cur.execute("UPDATE Keys set status=? where hash=?",self.__statement)
         con.commit()
@@ -86,7 +87,7 @@ class Map:
 
     def __map_insert(self):
         self.__statement = (self.__room_id, self.__uid)
-        con = sqlite3.connect('data.db')
+        con = sqlite3.connect('../KeyServer/data.db')
         cur = con.cursor()
         cur.execute("INSERT INTO Map(roomid, uid, compute_time) VALUES (?,?,datetime())", self.__statement)
         con.commit()
@@ -100,7 +101,7 @@ class Map:
 
     def __map_delete(self, room_id):
         self.__statement = room_id
-        con = sqlite3.connect('data.db')
+        con = sqlite3.connect('../KeyServer/data.db')
         cur = con.cursor()
         cur.execute("DELETE from Map where roomid=?", (self.__statement,))
         con.commit()
@@ -118,17 +119,19 @@ class Map:
         """
         if self.__uid:
             self.__statement = self.__uid
-            con = sqlite3.connect('data.db')
+            con = sqlite3.connect('../KeyServer/data.db')
             cur = con.cursor()
             cur.execute("select roomid from 'Map' where uid=?", (self.__statement,))
-            self.__room_id = cur.fetchall()[0][0]
+            debug = cur.fetchall()
+            self.__room_id = debug[0][0]
             self.__statement = None
         else:
             self.__statement = self.__room_id
-            con = sqlite3.connect('data.db')
+            con = sqlite3.connect('../KeyServer/data.db')
             cur = con.cursor()
             cur.execute("select uid from 'Map' where roomid=?", (self.__statement,))
-            self.__uid = cur.fetchall()[0][0]
+            debug = cur.fetchall()
+            self.__uid = debug[0][0]
             self.__statement = None
 
     def getMappingKey(self):
@@ -159,15 +162,16 @@ class UserList:
 
     def __user_metas(self):
         self.__statement = self.__nickname
-        con = sqlite3.connect('data.db')
+        con = sqlite3.connect('../KeyServer/data.db')
         cur = con.cursor()
         cur.execute("select uid from 'Users' where nickname=?", (self.__statement,))
-        self.__uid = cur.fetchall()[0][0]
+        debug = cur.fetchall()
+        self.__uid = debug[0][0]
         self.__statement = None
 
     def __user_insert(self):
         self.__statement = (self.__uid, self.__nickname)
-        con = sqlite3.connect('data.db')
+        con = sqlite3.connect('../KeyServer/data.db')
         cur = con.cursor()
         cur.execute("INSERT INTO Users(uid,nickname,compute_time) VALUES (?,?,datetime())", self.__statement)
         con.commit()
@@ -180,7 +184,7 @@ class UserList:
         """
         if self.__uid :
             self.__statement = self.__uid
-            con = sqlite3.connect('data.db')
+            con = sqlite3.connect('../KeyServer/data.db')
             cur = con.cursor()
             cur.execute("DELETE from Users where uid=?", (self.__statement,))
             con.commit()
@@ -188,7 +192,7 @@ class UserList:
             print('User deleted')
         else:
             self.__statement = self.__nickname
-            con = sqlite3.connect('data.db')
+            con = sqlite3.connect('../KeyServer/data.db')
             cur = con.cursor()
             cur.execute("DELETE from Users where nickname=?", (self.__statement,))
             con.commit()
@@ -212,7 +216,7 @@ class RoomList:
 
     def __logRoomIn(self):
         self.__statement = (self.__room_id, self.__port)
-        con = sqlite3.connect('data.db')
+        con = sqlite3.connect('../KeyServer/data.db')
         cur = con.cursor()
         cur.execute("INSERT INTO Rooms(roomid,port,compute_time) VALUES (?,?,datetime())", self.__statement)
         con.commit()
@@ -221,7 +225,7 @@ class RoomList:
 
     def __logRoomOut(self,room_id):
         self.__statement = room_id
-        con = sqlite3.connect('data.db')
+        con = sqlite3.connect('../KeyServer/data.db')
         cur = con.cursor()
         cur.execute("DELETE from Rooms where roomid=?", (self.__statement,))
         con.commit()
@@ -230,14 +234,16 @@ class RoomList:
 
     def __room_metas(self):
         self.__statement = self.__room_id
-        con = sqlite3.connect('data.db')
+        con = sqlite3.connect('../KeyServer/data.db')
         cur = con.cursor()
-        cur.execute("SELECT port, room_exsit, isActive FROM Rooms where roomid=?", (self.__statement,))
-        self.__port = cur.fetchall()[0][0]
-        self.__room_exist = cur.fetchall()[0][1]
-        self.__isActive = cur.fetchall()[0][2]
-        # self.debug = cur.fetchall()
+        cur.execute("SELECT port, room_exist, isActive FROM Rooms where roomid=?", (self.__statement,))
+        self.debug = cur.fetchall()
+        print(self.debug)
+        self.__port = self.debug[0][0]
+        self.__room_exist = self.debug[0][1]
+        self.__isActive = self.debug[0][2]
         self.__statement = None
+
 
     def find_room(self,room_id):
         self.__room_id = room_id
@@ -245,9 +251,9 @@ class RoomList:
 
     def room_status_update(self, room_id ,isActive):
         self.__statement = isActive
-        con = sqlite3.connect('data.db')
+        con = sqlite3.connect('../KeyServer/data.db')
         cur = con.cursor()
-        cur.execute("UPDATE Rooms set isActive=? where roomid=?",(self.__statement,))
+        cur.execute("UPDATE Rooms set isActive=? where roomid=?",(self.__statement,room_id))
         con.commit()
         self.__statement = None
 
@@ -265,3 +271,6 @@ class RoomList:
 
     def getPort(self):
         return self.__port
+
+    def getDebug(self):
+        return self.debug

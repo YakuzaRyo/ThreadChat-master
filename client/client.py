@@ -22,6 +22,7 @@ class Client(Cmd):
         self.__nickname = None
         self.__isLogin = False
         self.reconnect_flag = 0
+        self.__type = None
 
     def __receive_message_thread(self):
         """
@@ -34,25 +35,37 @@ class Client(Cmd):
                 obj = json.loads(buffer)
                 if obj['type'] == 'socket':
                     pt = obj['message']
+
+                elif obj['type'] == 'Initialize':
+                    print(obj['message'])
+
+                elif obj['type'] == 'Token':
+                    print('Use://',obj['message'], '//to join the chatroom')
+
                 elif obj['type'] == 'goChat':
                     port = obj['port']
+                    self.__socket.close()
                     thread = threading.Thread(target=self.start,args=(port,))
                     thread.setDaemon(True)
                     thread.start()
                 print('[' + str(obj['sender_nickname']) + '(' + str(obj['sender_id']) + ')' + ']', obj['message'])
             except Exception:
                 print('[Client] 无法从服务器获取数据')
+                exit(0)
 
-    def __send_message_thread(self, Type, message):
+    def __send_message_thread(self, message):
         """
         发送消息线程
         :param message: 消息内容
         """
+
         self.__socket.send(json.dumps({
-            'type': Type,
+            'type': self.__type,
             'sender_id': self.__id,
             'message': message
         }).encode())
+        print('From send thread type:',self.__type)
+        time.sleep(0.5)
 
     def start(self,host='127.0.0.1',port=8888):
         """
@@ -78,6 +91,7 @@ class Client(Cmd):
         try:
             buffer = self.__socket.recv(1024).decode()
             obj = json.loads(buffer)
+            print(obj)
             if obj['id']:
                 self.__nickname = nickname
                 self.__id = obj['id']
@@ -104,7 +118,8 @@ class Client(Cmd):
         except Exception as e:
             print(e)
 
-    def do_send(self, Type, args):
+
+    def do_send(self, args):
         """
         发送消息
         :param args: 参数
@@ -113,7 +128,7 @@ class Client(Cmd):
         # 显示自己发送的消息
         print('[' + str(self.__nickname) + '(' + str(self.__id) + ')' + ']', message)
         # 开启子线程用于发送数据
-        thread = threading.Thread(target=self.__send_message_thread, args=(Type, message,))
+        thread = threading.Thread(target=self.__send_message_thread, args=(message,))
         thread.setDaemon(True)
         thread.start()
 
@@ -129,13 +144,14 @@ class Client(Cmd):
         self.__isLogin = False
         return True
 
-    def create_chatroom(self):
+    def do_create(self,args=None):
         """
         创建聊天室
         """
         message = self.__nickname
+        self.__type = 'ChatRoom'
         # 开启子线程用于发送数据
-        thread = threading.Thread(target=self.__send_message_thread, args=('ChatRoom', message,))
+        thread = threading.Thread(target=self.__send_message_thread, args=(message,))
         thread.setDaemon(True)
         thread.start()
 
@@ -145,8 +161,9 @@ class Client(Cmd):
         :param args: 参数（用户输入token）
         """
         message = args
+        self.__type = 'Join'
         # 开启子线程用于发送数据
-        thread = threading.Thread(target=self.__send_message_thread, args=('Join', message,))
+        thread = threading.Thread(target=self.__send_message_thread, args=(message,))
         thread.setDaemon(True)
         thread.start()
 
@@ -158,18 +175,10 @@ class Client(Cmd):
         command = arg.split(' ')[0]
         if command == '':
             print('[Help] login nickname - 登录到聊天室，nickname是你选择的昵称')
-            print('[Help] send message - 发送消息，message是你输入的消息')
-            print('[Help] logout - 退出聊天室')
-        elif command == 'login':
-            print('[Help] login nickname - 登录到聊天室，nickname是你选择的昵称')
-        elif command == 'send':
-            print('[Help] send message - 发送消息，message是你输入的消息')
-        elif command == 'logout':
-            print('[Help] logout - 退出聊天室')
-        elif command == 'join':
             print('[Help] join token - 加入指定聊天室')
-        elif command == 'create':
+            print('[Help] send message - 发送消息，message是你输入的消息')
             print('[Help] create - 创建指定聊天室')
+            print('[Help] logout - 退出聊天室')
 
         else:
             print('[Help] 没有查询到你想要了解的指令')

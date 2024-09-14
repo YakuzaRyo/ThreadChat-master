@@ -14,7 +14,7 @@ class PortCheck:
         self.__process_start()
         # self.__threads_start()
         self.recommend_port = 0
-        self.__set_port()
+        #self.__set_port()
         if flag:
             self.__debug()
 
@@ -48,7 +48,7 @@ class PortCheck:
     def __process_start(self):
         # print(multiprocessing.cpu_count())
         self.__process = multiprocessing.Pool(16)
-        for i in range(0,65536):
+        for i in range(8889,65536):
             self.__process.apply_async(self.__is_port_in_use(i))
         self.__process.close()
         """for th in self.__process:

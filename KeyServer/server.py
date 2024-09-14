@@ -32,6 +32,7 @@ class Server:
         self.__ports = list()
         self.__isActive = False
         self.__port = 0
+        self.__type = ''
 
     def __user_thread(self, user_id):
         """
@@ -39,78 +40,104 @@ class Server:
         :param user_id: 用户id
         """
         No = self.__uuids.index(user_id)
+        print(No)
         connection = self.__connections[No]
+        print(connection)
         nickname = self.__nicknames[No]
         print('[Server] 用户', user_id, nickname, '已登录')
-        self.__messaging(connection,user_id, message='用户 ' + str(nickname) + '已登录')
+        print('端口加载中')
+        P = PortCheck(0)
+        self.__ports = P.getAvailable_ports()
+        print('加载完成')
+        thread = threading.Thread(target=self.__init_sender, args=(user_id, '用户 ' + str(nickname) + '已登录'))
+        thread.setDaemon(True)
+        thread.start()
+
 
         # 侦听
         while True:
             # noinspection PyBroadException
-            try:
-                buffer = connection.recv(1024).decode()
-                # 解析成json数据
-                obj = json.loads(buffer)
-                # 如果是广播指令
-                if obj['type'] == 'ChatRoom':
-                    self.create_token(obj['message'],user_id,connection)
-                elif obj['type'] == 'Join':
-                    token = obj['message']
-                    hash_id = hash_generator(token)
+            #try:
+            buffer = connection.recv(1024).decode()
+            # 解析成json数据
+            obj = json.loads(buffer)
+            if obj['type'] == 'ChatRoom':
+                self.create_token(obj['message'],user_id)
+            elif obj['type'] == 'Join':
+                token = obj['message']
+                hash_id = hash_generator(token)
+                M = sql.sql_use.Map()
+                M.mapping(room_id=hash_id)
+                self.__key_thread(hash_id)
+                passport = self.__verification_result[0]
+                isActive = self.__verification_result[1]
+                port = self.__verification_result[2]
+                if M.getUid() and passport == 'Verified':
+                    if isActive:
+                        connection.send(json.dumps({
+                            'type': 'goChat',
+                            'port': port,
+                        }).encode())
+                        print('Asking transmission server to ChatServer')
+
+                    else:
+                        thread = threading.Thread(target=self.__room_thread, args=(token,port))
+                        connection.send(json.dumps({
+                            'type': 'goChat',
+                            'port': port,
+                        }).encode())
+                        thread.setDaemon(True)
+                        thread.start()
+                elif passport == 'Close':
+                    thread = threading.Thread(target=self.__messaging, args=(user_id, 'Room Closed'))
+                    thread.setDaemon(True)
+                    thread.start()
                     M = sql.sql_use.Map()
-                    M.mapping(room_id=hash_id)
-                    self.__key_thread(hash_id)
-                    passport = self.__verification_result[0]
-                    isActive = self.__verification_result[1]
-                    port = self.__verification_result[2]
-                    if M.getUid() and passport == 'Verified':
-                        if isActive:
-                            connection.send(json.dumps({
-                                'type': 'goChat',
-                                'port': port,
-                            }).encode())
-                            print('Asking transmission server to ChatServer')
+                    R = sql.sql_use.RoomList()
+                    R.logout(hash_id)
+                    M.close_map(hash_id)
 
-                        else:
-                            thread = threading.Thread(target=self.__room_thread, args=(token,port))
-                            connection.send(json.dumps({
-                                'type': 'goChat',
-                                'port': port,
-                            }).encode())
-                            thread.setDaemon(True)
-                            thread.start()
-                    elif passport == 'Close':
-                        thread = threading.Thread(target=self.__messaging, args=(connection, user_id, 'Room Closed'))
-                        thread.setDaemon(True)
-                        thread.start()
-                        M = sql.sql_use.Map()
-                        R = sql.sql_use.RoomList()
-                        R.logout(hash_id)
-                        M.close_map(hash_id)
+                elif passport == 'Invalid':
+                    thread = threading.Thread(target=self.__messaging, args=( user_id, 'Invalid token'))
+                    thread.setDaemon(True)
+                    thread.start()
+            else:
+                print('[Server] 无法解析json数据包')
 
-                    elif passport == 'Invalid':
-                        thread = threading.Thread(target=self.__messaging, args=(connection, user_id, 'Invalid token'))
-                        thread.setDaemon(True)
-                        thread.start()
-                else:
-                    print('[Server] 无法解析json数据包')
-            except Exception:
-                print('Something wrong')
+            """except Exception:
+                print('[Server] 连接失效:', connection.getsockname(), connection.fileno())
+                self.__connections[No].close()
+                self.__connections[No] = None
+                self.__nicknames[No] = None"""
 
     def __key_thread(self, room_id):
         V = Verify(room_id)
         self.__verification_result = V.verify()
         print('Verification program closed')
 
-    def __messaging(self, connection,user_id, message):
+    def __messaging(self,user_id, message):
         """
         广播
         :param user_id: 用户id(0为系统)
         :param message: 广播内容
         """
-        connection.send(json.dumps({
+        No = self.__uuids.index(user_id)
+        self.__connections[No].send(json.dumps({
+            'type':self.__type,
+            'sender_id': user_id,
+            'sender_nickname': self.__nicknames[No],
+            'message': message
+        }).encode())
+        print(message)
+
+    def __init_sender(self,user_id,message):
+        No = self.__uuids.index(user_id)
+        for i in range(1, len(self.__connections)):
+            if No != i and self.__connections[i]:
+                self.__connections[i].send(json.dumps({
+                    'type':'Initialize',
                     'sender_id': user_id,
-                    'sender_nickname': self.__nicknames[user_id],
+                    'sender_nickname': self.__nicknames[No],
                     'message': message
                 }).encode())
 
@@ -124,16 +151,17 @@ class Server:
             # 如果是连接指令，那么则返回一个新的用户编号，接收用户连接
             if obj['type'] == 'login':
                 self.__connections.append(connection)
+                self.__nicknames.append(obj['nickname'])
                 uid = uuid.uuid1()
                 U = sql.sql_use.UserList()
-                U.user_login(obj['message'], str(uid))
-
+                U.user_login(obj['nickname'], str(uid))
+                self.__uuids.append(str(uid))
                 connection.send(json.dumps({
-                    'id': uid
+                    'type':'Initialize',
+                    'id': str(uid)
                 }).encode())
-
                 # 开辟一个新的线程
-                thread = threading.Thread(target=self.__user_thread, args=str(uid))
+                thread = threading.Thread(target=self.__user_thread, args=(str(uid),))
                 thread.setDaemon(True)
                 thread.start()
             else:
@@ -150,11 +178,12 @@ class Server:
         # 启用监听
         self.__socket.listen(10)
         print('[Server] 服务器正在运行......')
-
         # 清空连接
         self.__connections.clear()
         self.__nicknames.clear()
+        self.__uuids.clear()
         self.__connections.append(None)
+        self.__uuids.append(None)
         self.__nicknames.append('System')
         # 开始侦听
         while True:
@@ -164,16 +193,22 @@ class Server:
             thread.setDaemon(True)
             thread.start()
 
-    def create_token(self, Creator, user_id, connection):
+    def create_token(self, Creator, user_id):
+        print('Start Creating Token')
         token = self.__generate(Creator,user_id)
-        P = PortCheck(0)
-        self.__port = P.getRecommendedPort()
+        print(token)
+        self.__type = 'Token'
+        self.__port = random.choice(self.__ports)
         R = sql.sql_use.RoomList()
         R.logRoom(hash_generator(token),self.__port)
         R.login()
-        thread = threading.Thread(target=self.__messaging, args=(connection, user_id, token))
-        thread.setDaemon(True)
-        thread.start()
+        No = self.__uuids.index(user_id)
+        self.__connections[No].send(json.dumps({
+                'type': self.__type,
+                'sender_id': user_id,
+                'sender_nickname': self.__nicknames[No],
+                'message': token
+                }).encode())
 
     def __generate(self, name, uid):
         """
@@ -182,15 +217,15 @@ class Server:
         num = str(random.randint(10**32, 10**33))
         secret_num = ''.join(random.choices(num, k=16))
         key_hash = hashlib.sha256()
-        key_hash.update(name)
+        key_hash.update(name.encode())
         key_hash.update(secret_num.encode())
         self.__key = key_hash.hexdigest()
         name_hash = hashlib.sha256()
-        name_hash.update(name)
+        name_hash.update(name.encode())
 
         payload = {
             'exp': datetime.now() + timedelta(minutes=30),  # 令牌过期时间
-            'username': name_hash  # 想要传递的信息,如用户名ID
+            'username': name_hash.hexdigest()  # 想要传递的信息,如用户名ID
         }
 
         encoded_jwt = jwt.encode(payload, self.__key, algorithm='HS256')
