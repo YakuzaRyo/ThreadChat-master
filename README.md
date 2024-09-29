@@ -39,3 +39,12 @@ feature确认
 
 
 使用了sqlite3数据库进行服务器数据的存储，包含四个表Keys、Map、Users、Rooms，分别存储房间token，用户和房间关系，用户列表和房间列表。
+
+> [!NOTE]
+>
+> Update Note
+
+New feature
+
+- 增加了一个端口转发服务器作为front服务器来处理用户动作，用户的认证登录、聊天室timer和启动聊天室全部放在了front服务器
+- 更改了服务器与客户端之间文本的能见度，并未添加安全传输机制

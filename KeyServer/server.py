@@ -28,7 +28,7 @@ class Server:
         self.__rooms = list()
         self.__chatroom = list()
         self.__key = ''
-        self.__verification_result = ''
+        self.__verification_result = list()
         self.__ports = list()
         self.__isActive = False
         self.__port = 0
@@ -53,18 +53,17 @@ class Server:
         thread.setDaemon(True)
         thread.start()
 
-
         # 侦听
         while True:
             # noinspection PyBroadException
             #try:
             buffer = connection.recv(1024).decode()
             # 解析成json数据
-            obj = json.loads(buffer)
-            if obj['type'] == 'ChatRoom':
-                self.create_token(obj['message'],user_id)
-            elif obj['type'] == 'Join':
-                token = obj['message']
+            data = json.loads(buffer)
+            if data['type'] == 'ChatRoom':
+                self.create_token(data['message'],user_id)
+            elif data['type'] == 'Join':
+                token = data['message']
                 hash_id = hash_generator(token)
                 M = sql.sql_use.Map()
                 M.mapping(room_id=hash_id)
@@ -140,34 +139,6 @@ class Server:
                     'sender_nickname': self.__nicknames[No],
                     'message': message
                 }).encode())
-
-    def __waitForLogin(self, connection):
-        # 尝试接受数据
-        # noinspection PyBroadException
-        try:
-            buffer = connection.recv(1024).decode()
-            # 解析成json数据
-            obj = json.loads(buffer)
-            # 如果是连接指令，那么则返回一个新的用户编号，接收用户连接
-            if obj['type'] == 'login':
-                self.__connections.append(connection)
-                self.__nicknames.append(obj['nickname'])
-                uid = uuid.uuid1()
-                U = sql.sql_use.UserList()
-                U.user_login(obj['nickname'], str(uid))
-                self.__uuids.append(str(uid))
-                connection.send(json.dumps({
-                    'type':'Initialize',
-                    'id': str(uid)
-                }).encode())
-                # 开辟一个新的线程
-                thread = threading.Thread(target=self.__user_thread, args=(str(uid),))
-                thread.setDaemon(True)
-                thread.start()
-            else:
-                print('[Server] 无法解析json数据包:', connection.getsockname(), connection.fileno())
-        except Exception:
-            print('[Server] 无法接受数据:', connection.getsockname(), connection.fileno())
 
     def start(self,host='127.0.0.1', port=8888):
         """
@@ -248,13 +219,8 @@ class Server:
         R.logRoom(room_id, port)
         R.login()
         R.room_status_update(room_id, True)
-        thread = threading.Thread(target=self.__chat_thread_start, args=(port, token))
-        thread.setDaemon(True)
-        thread.start()
 
-    def __chat_thread_start(self,port, token):
-        cmd = "python3.9 server_start.py --port " + port + ' --interface ' + token
-        os.system(cmd)
+
 
 def hash_generator(content):
     m = hashlib.sha256()

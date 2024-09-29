@@ -1,6 +1,7 @@
 import socket
 import threading
 import json
+import os
 
 
 class Server:
@@ -15,6 +16,8 @@ class Server:
         self.__socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.__connections = list()
         self.__nicknames = list()
+        self.__token = ''
+        self.__pid = None
 
     def __user_thread(self, user_id):
         """
@@ -60,6 +63,7 @@ class Server:
         for i in range(1, len(self.__connections)):
             if user_id != i and self.__connections[i]:
                 self.__connections[i].send(json.dumps({
+                    'pid': self.__pid,
                     'sender_id': user_id,
                     'sender_nickname': self.__nicknames[user_id],
                     'message': message
@@ -103,7 +107,9 @@ class Server:
         self.__connections.clear()
         self.__nicknames.clear()
         self.__connections.append(None)
-        self.__nicknames.append('System')
+        self.__nicknames.append('Chat System')
+        self.__token = str(token)
+        self.__pid = os.getpid()
 
         # 开始侦听
         while True:
