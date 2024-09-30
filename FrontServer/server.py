@@ -15,16 +15,17 @@ class FrontServer:
         self.__FrontServer_port = 8801
         self.__Function_mode = 0 # 0:登录 1:创建 2:加入 3:聊天 4:登出
         self.__connections = []
-        self.__S_type = 'Initialize'
-        self.__C_type = 'login'
-        self.__sender_nickname = '[System]'
-        self.__sender_id = str(uuid.uuid1())
+        self.__S_type = None
+        self.__C_type = None
+        self.__sender_nickname = None
+        self.__sender_id = None
         self.__KeyServer_port = 8888
-        self.__isActive = False
-        self.__token = ''
-        self.__room_id = hash_generator(self.__sender_id)
-        self.__pid = os.getpid()
-        self.__message = ''
+        self.__isActive = None # False
+        self.__token = None
+        self.__room_id = None
+        self.__pid = None
+        self.__sender_message = None
+        self.__server_message = None
         self.__S_type_list = ['Initialize','Key','Chat','ALL']
         self.__C_type_list = ['login','ChatRoom','Join','logout','goChat','Close','Initialize']
         self.__token_list = []
@@ -40,16 +41,17 @@ class FrontServer:
             buffer = connection.recv(1024).decode()
             # 解析成json数据
             data_cs = json.loads(buffer)
+            print(data_cs)
             # 如果是连接指令，那么则返回一个新的用户编号，接收用户连接
             if data_cs['C_type'] == 'login':
-                self.__type_match(0,0)
+                self.__type_match(0,6)
                 self.__connections.append(connection)
-                self.__nicknames.append(data_cs['nickname'])
+                self.__nicknames.append(data_cs['sender_nickname'])
                 uid = uuid.uuid1()
-                self.__setMetaFlow(sender_id=str(uid), sender_nickname=data_cs['nickname'])
+                self.__setMetaFlow(sender_id=str(uid),sender_nickname=data_cs['sender_nickname'])
                 data_cs = self.__cs_data_build()
                 U = sql.sql_use.UserList()
-                U.user_login(data_cs['nickname'], str(uid))
+                U.user_login(data_cs['sender_nickname'], str(uid))
                 self.__uuids.append(str(uid))
                 connection.send(json.dumps(data_cs).encode())
                 # 开辟一个新的线程
@@ -101,7 +103,8 @@ class FrontServer:
             'room_id': self.__room_id,
             'pid': self.__pid,
             'sender_nickname': self.__sender_nickname,
-            'message': self.__message,
+            'sender_message': self.__sender_message,
+            'server_message': self.__server_message
         }
         return data
 
@@ -111,20 +114,33 @@ class FrontServer:
             'sender_id': self.__sender_id,
             'token': self.__token,
             'sender_nickname': self.__sender_nickname,
-            'message': self.__message,
+            'sender_message': self.__sender_message,
         }
         return data
 
-    def __setMetaFlow(self, sender_id='0', port=0, isActive=False, token='', room_id='', pid='0', sender_nickname='[System]', message='Try it!'):
-        self.__sender_id = sender_id
-        self.__dst_port = port
-        self.__isActive = isActive
-        self.__token = token
-        self.__room_id = room_id
-        self.__pid = pid
-        self.__sender_nickname = sender_nickname
-        self.__message = message
-
+    def __setMetaFlow(self, sender_id=None, port=None, isActive=None, token=None, room_id=None, pid=None,
+                      sender_nickname=None, sender_message=None, server_message=None):
+        metaFlow = [sender_id,port,isActive,token,room_id,pid,sender_nickname,sender_message,server_message]
+        for i in range(len(metaFlow)):
+            if metaFlow[i] is not None:
+                if i == 0:
+                    self.__sender_id = metaFlow[i]
+                elif i == 1:
+                    self.__port = metaFlow[i]
+                elif i == 2:
+                    self.__isActive = metaFlow[i]
+                elif i == 3:
+                    self.__token = metaFlow[i]
+                elif i == 4:
+                    self.__room_id = metaFlow[i]
+                elif i == 5:
+                    self.__pid = metaFlow[i]
+                elif i == 6:
+                    self.__sender_nickname = metaFlow[i]
+                elif i == 7:
+                    self.__sender_message = metaFlow[i]
+                elif i == 8:
+                    self.__server_message = metaFlow[i]
     @staticmethod
     def __chat_thread_start(port, token):
         cmd = "python3.9 chatroom_start.py --port " + port + ' --interface ' + token
@@ -147,7 +163,7 @@ class FrontServer:
             print('Token_id: ',room_id,' Not Verified, Room Closed')
 
     def __task_timer(self):
-        for i in range(len(self.__token_list)):
+        for i in range(1, len(self.__token_list)):
             token = self.__token_list[i]
             pid = self.__pid_list[i]
             self.__timer(token, pid)
@@ -168,6 +184,7 @@ class FrontServer:
         self.__connections.append(None)
         self.__uuids.append(None)
         self.__nicknames.append('[System]')
+        self.__pid_list.append(os.getpid())
         # 开始侦听
         while True:
             connection, address = self.__socket.accept()
@@ -185,77 +202,87 @@ class FrontServer:
         :param user_id: 用户id
         """
         No = self.__uuids.index(user_id)
-        print(No)
         connection = self.__connections[No]
-        print(connection)
         nickname = self.__nicknames[No]
         print('[Server] 用户', user_id, nickname, '已登录')
-        thread = threading.Thread(target=self.__sender_0, args=(user_id, '用户 ' + str(nickname) + '已登录'))
+        thread = threading.Thread(target=self.__sender_0, args=(user_id, '用户 ' + str(nickname) + ' 已登录'))
         thread.setDaemon(True)
         thread.start()
 
         # 侦听
         while True:
             # noinspection PyBroadException
-            #try:
-            buffer = connection.recv(1024).decode()
-            # 解析成json数据
-            data_cs = json.loads(buffer)
-            self.__setMetaFlow(sender_id=data_cs['sender_id'], port=8888, token=data_cs['token'],
-                               sender_nickname=data_cs['sender_nickname'], message=data_cs['sender_message'])
-            if data_cs['C_type'] == 'ChatRoom':
-                """
-                接收create信息
-                """
-                self.__type_match(1,1)
-                data_ss = self.__ss_data_build()
-                self.__Forward(data_ss)
-                data_cs = self.__Forward(data_ss)
-                connection.send(json.dumps(data_cs).encode())
-                print()
-            elif data_cs['C_type'] == 'Join':
-                """
-                接收join信息
-                """
-                self.__type_match(1, 2)
-                data_ss = self.__ss_data_build()
-                print(data_ss)
-                data_cs = self.__Forward(data_ss)
-                connection.send(json.dumps(data_cs).encode())
+            try:
+                buffer = connection.recv(1024).decode()
+                # 解析成json数据
+                data_cs = json.loads(buffer)
+                self.__setMetaFlow(sender_id=data_cs['sender_id'], token=data_cs['token'],
+                                   sender_nickname=data_cs['sender_nickname'], sender_message=data_cs['sender_message'])
+                if data_cs['C_type'] == 'ChatRoom':
+                    """
+                    接收create信息
+                    """
+                    self.__setMetaFlow(port=8888)
+                    self.__type_match(1,1)
+                    data_ss = self.__ss_data_build()
+                    self.__Forward(data_ss)
+                    data_cs = self.__Forward(data_ss)
+                    connection.send(json.dumps(data_cs).encode())
+                    print()
+                elif data_cs['C_type'] == 'Join':
+                    """
+                    接收join信息
+                    """
+                    self.__setMetaFlow(port=8888)
+                    self.__type_match(1, 2)
+                    data_ss = self.__ss_data_build()
+                    print(data_ss)
+                    data_cs = self.__Forward(data_ss)
+                    connection.send(json.dumps(data_cs).encode())
 
-            elif data_cs['C_type'] == 'logout':
-                """
-                接收logout信息
-                """
-                self.__type_match(3, 3)
-                data_ss = self.__ss_data_build()
-                self.__Forward(data_ss)
-                data_cs = self.__Forward(data_ss)
-                connection.send(json.dumps(data_cs).encode())
+                elif data_cs['C_type'] == 'logout':
+                    """
+                    接收logout信息
+                    """
+                    self.__type_match(3, 3)
+                    data_ss = self.__ss_data_build()
+                    self.__Forward(data_ss)
+                    data_cs = self.__Forward(data_ss)
+                    connection.send(json.dumps(data_cs).encode())
 
-            elif data_cs['C_type'] == 'goChat':
-                """
-                接收send信息
-                """
-                self.__type_match(2, 4)
-                data_ss = self.__ss_data_build()
-                self.__Forward(data_ss)
-                data_cs = self.__Forward(data_ss)
-                connection.send(json.dumps(data_cs).encode())
+                elif data_cs['C_type'] == 'goChat':
+                    """
+                    接收send信息
+                    """
+                    self.__setMetaFlow(port=88)
+                    self.__type_match(2, 4)
+                    data_ss = self.__ss_data_build()
+                    self.__Forward(data_ss)
+                    data_cs = self.__Forward(data_ss)
+                    connection.send(json.dumps(data_cs).encode())
 
+                elif data_cs['C_type'] == 'Initialized':
+                    print('Client ',self.__sender_id,' Initialized')
 
-            else:
-                print('[Server] 无法解析json数据包')
+                else:
+                    print('[Server] 无法解析json数据包')
+            except Exception :
+                print('发生了某些错误，已关闭连接')
+                del self.__connections[No]
 
     def __sender_0(self,user_id,message):
         self.__type_match(3,6)
-        self.__setMetaFlow(sender_id=user_id,message=message)
+        self.__setMetaFlow(sender_id=user_id,sender_message=message)
         data_cs = self.__cs_data_build()
         No = self.__uuids.index(user_id)
+        print('start first try')
+        print(data_cs)
         for i in range(1, len(self.__connections)):
-            if No != i and self.__connections[i]:
+            if No == i and self.__connections[i]:
                 self.__connections[i].send(json.dumps(data_cs).encode())
 
+    def __setDst_port(self, port):
+        self.__dst_port = port
 
 def hash_generator(content):
     m = hashlib.sha256()

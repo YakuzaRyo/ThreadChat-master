@@ -10,19 +10,49 @@ class Client(Cmd):
     客户端
     """
     prompt = ''
-    intro = '[Welcome] 简易聊天室客户端(Cli版)\n' + '[Welcome] 输入help来获取帮助\n'
+    intro = '[Welcome] ####ThreadChat Server####\n' + '[Welcome] 输入help来获取帮助\n'
 
     def __init__(self):
         """
         构造
         """
         super().__init__()
+        self.__C_type = None
         self.__socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.__id = None
-        self.__nickname = None
+        self.__sender_id = None
+        self.__sender_nickname = None
+        self.__token = None
+        self.__message = None
         self.__isLogin = False
         self.reconnect_flag = 0
         self.__type = None
+
+    def __cs_data_build(self):
+        data = {
+            'C_type': self.__C_type,
+            'sender_id': self.__sender_id,
+            'token': self.__token,
+            'sender_nickname': self.__sender_nickname,
+            'sender_message': self.__message,
+        }
+        return data
+
+    def __setMetaFlow_cs(self, C_type = None,sender_id=None, token=None, sender_nickname=None, message=None):
+        metaFlow = [C_type, sender_id, token, sender_nickname, message]
+        for i in range(len(metaFlow)):
+            if metaFlow[i] is not None:
+                if i == 0:
+                    self.__C_type = metaFlow[i]
+                elif i == 1:
+                    self.__sender_id = metaFlow[i]
+                elif i == 2:
+                    self.__token = metaFlow[i]
+                elif i == 3:
+                    self.__sender_nickname = metaFlow[i]
+                elif i == 4:
+                    self.__message = metaFlow[i]
+
+
 
     def __receive_message_thread(self):
         """
@@ -30,25 +60,30 @@ class Client(Cmd):
         """
         while self.__isLogin:
             # noinspection PyBroadException
+            print('start receiving message')
             try:
                 buffer = self.__socket.recv(1024).decode()
-                obj = json.loads(buffer)
-                if obj['type'] == 'socket':
-                    pt = obj['message']
+                data_cs = json.loads(buffer)
+                if data_cs['C_type'] == 'login':
+                    pt = data_cs['sender_id']
+                    print(pt)
 
-                elif obj['type'] == 'Initialize':
-                    print(obj['message'])
+                elif data_cs['C_type'] == 'Initialize':
+                    print('Receive from server with initialization')
+                    self.__setMetaFlow_cs(C_type='Initialized')
+                    print('[Server]:', data_cs['sender_message'])
+                    self.__socket.send(json.dumps(self.__cs_data_build()).encode())
 
-                elif obj['type'] == 'Token':
-                    print('Use://',obj['message'], '//to join the chatroom')
+                elif data_cs['C_type'] == 'Token':
+                    print('Use://',data_cs['message'], '//to join the chatroom')
 
-                elif obj['type'] == 'goChat':
-                    port = obj['port']
+                elif data_cs['C_type'] == 'goChat':
+                    port = data_cs['port']
                     self.__socket.close()
                     thread = threading.Thread(target=self.start,args=(port,))
                     thread.setDaemon(True)
                     thread.start()
-                print('[' + str(obj['sender_nickname']) + '(' + str(obj['sender_id']) + ')' + ']', obj['message'])
+                print('[' + str(data_cs['sender_nickname']) + '(' + str(data_cs['sender_id']) + ')' + ']', data_cs['sender_message'])
             except Exception:
                 print('[Client] 无法从服务器获取数据')
                 exit(0)
@@ -58,16 +93,13 @@ class Client(Cmd):
         发送消息线程
         :param message: 消息内容
         """
-
-        self.__socket.send(json.dumps({
-            'type': self.__type,
-            'sender_id': self.__id,
-            'message': message
-        }).encode())
-        print('From send thread type:',self.__type)
+        print('start sending message')
+        self.__setMetaFlow_cs(message=message)
+        self.__socket.send(json.dumps(self.__cs_data_build()).encode())
+        print('From send thread C_type:',self.__type)
         time.sleep(0.5)
 
-    def start(self,host='127.0.0.1',port=8888):
+    def start(self,host='127.0.0.1',port=8801):
         """
         启动客户端
         """
@@ -80,21 +112,18 @@ class Client(Cmd):
         :param args: 参数
         """
         nickname = args.split(' ')[0]
-
+        self.__setMetaFlow_cs(C_type='login', sender_nickname=nickname)
+        print("User nickname:", self.__sender_nickname)
         # 将昵称发送给服务器，获取用户id
-        self.__socket.send(json.dumps({
-            'type': 'login',
-            'nickname': nickname
-        }).encode())
+        self.__socket.send(json.dumps(self.__cs_data_build()).encode())
         # 尝试接受数据
         # noinspection PyBroadException
         try:
             buffer = self.__socket.recv(1024).decode()
-            obj = json.loads(buffer)
-            print(obj)
-            if obj['id']:
-                self.__nickname = nickname
-                self.__id = obj['id']
+            data_cs = json.loads(buffer)
+            print(data_cs)
+            if data_cs['sender_id']:
+                self.__setMetaFlow_cs(sender_id=data_cs['sender_id'],sender_nickname=nickname)
                 self.__isLogin = True
                 print('[Client] 成功登录到聊天室')
 
@@ -126,7 +155,7 @@ class Client(Cmd):
         """
         message = args
         # 显示自己发送的消息
-        print('[' + str(self.__nickname) + '(' + str(self.__id) + ')' + ']', message)
+        print('[' + str(self.__sender_nickname) + '(' + str(self.__sender_id) + ')' + ']', message)
         # 开启子线程用于发送数据
         thread = threading.Thread(target=self.__send_message_thread, args=(message,))
         thread.setDaemon(True)
@@ -138,8 +167,8 @@ class Client(Cmd):
         :param args: 参数
         """
         self.__socket.send(json.dumps({
-            'type': 'logout',
-            'sender_id': self.__id
+            'C_type': 'logout',
+            'sender_id': self.__sender_id
         }).encode())
         self.__isLogin = False
         return True
@@ -148,7 +177,7 @@ class Client(Cmd):
         """
         创建聊天室
         """
-        message = self.__nickname
+        message = self.__sender_nickname
         self.__type = 'ChatRoom'
         # 开启子线程用于发送数据
         thread = threading.Thread(target=self.__send_message_thread, args=(message,))
@@ -167,14 +196,14 @@ class Client(Cmd):
         thread.setDaemon(True)
         thread.start()
 
-    def do_help(self, arg):
+    def do_help(self, arg=None):
         """
         帮助
         :param arg: 参数
         """
         command = arg.split(' ')[0]
         if command == '':
-            print('[Help] login nickname - 登录到聊天室，nickname是你选择的昵称')
+            print('[Help] login sender_nickname - 登录到聊天室，nickname是你选择的昵称')
             print('[Help] join token - 加入指定聊天室')
             print('[Help] send message - 发送消息，message是你输入的消息')
             print('[Help] create - 创建指定聊天室')
@@ -182,5 +211,18 @@ class Client(Cmd):
 
         else:
             print('[Help] 没有查询到你想要了解的指令')
+    def __del__(self):
+        self.__socket.close()
+        del self.__socket
+        del self.__sender_id
+        del self.__token
+        del self.__sender_nickname
+        del self.__message
+        del self.__C_type
+        del self.__isLogin
+
+    def do_exit(self, args=None):
+        self.__del__()
+        exit(0)
 
 
