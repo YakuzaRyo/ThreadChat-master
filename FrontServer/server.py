@@ -124,20 +124,6 @@ class UserThread(FrontServer):
         self.__server_message = None
         self.__S_type = None
         self.__C_type = None
-        """
-        data{
-            S_type: 服务类型,
-            C_type: 通信类型,
-            sender_id: 发送方的id,
-            port: 聊天服务器(房间)访问端口,
-            isActive: 房间是否已激活(第一个用户加入房间时激活),
-            token: JWT生成的可验证的token payload用于用户加入房间,
-            room_id: 房间id(生成自token),
-            pid: 房间进程
-            sender_nickname: 用户昵称,
-            message: 用户使用send指令发送的信息
-            }
-        """
 
     def __sender_0(self,user_id,message):
         self.__type_match(3,6)
@@ -152,6 +138,20 @@ class UserThread(FrontServer):
         """
         rs = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         rs.connect(('localhost', self.__dst_port))
+        """
+        data{
+            S_type: 服务类型,
+            C_type: 通信类型,
+            sender_id: 发送方的id,
+            port: 聊天服务器(房间)访问端口,
+            isActive: 房间是否已激活(第一个用户加入房间时激活),
+            token: JWT生成的可验证的token payload用于用户加入房间,
+            room_id: 房间id(生成自token),
+            pid: 房间进程
+            sender_nickname: 用户昵称,
+            message: 用户使用send指令发送的信息
+            }
+        """
         rs.sendall(data_ss)
         data_ss = rs.recv(1024)
         rs.listen(5)
