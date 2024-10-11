@@ -1,4 +1,3 @@
-import hashlib
 import json
 import os
 import signal
@@ -6,8 +5,8 @@ import socket
 import threading
 import uuid
 
-import modules.verify
 import sql
+from modules import verify, SecurityCheck
 
 
 class FrontServer:
@@ -64,8 +63,8 @@ class FrontServer:
         self.__Function_mode = 0
 
     def __timer(self, token, pid):
-        room_id = hash_generator(token)
-        V = modules.verify.Verify(room_id)
+        room_id = SecurityCheck.hash_generator(token)
+        V = verify.Verify(room_id)
         self.__verification_result = V.verify()
         passport = self.__verification_result[0]
         if passport == 'Verified':
@@ -223,7 +222,7 @@ class UserThread(FrontServer):
         """
         用户子线程
         """
-        thread = threading.Thread(target=self.__sender_0, args=(self.__sender_id, '用户 ' + self.__sender_nickname + ' 已登录'))
+        thread = threading.Thread(target=self.__sender_0, args=(self.__sender_id, '用户 ' + self.__sender_nickname + ' 已连接到密钥服务器'))
         thread.setDaemon(True)
         thread.start()
 
@@ -289,8 +288,3 @@ class UserThread(FrontServer):
                 self.__connection.close()
                 print('发生了某些错误，已关闭连接')
                 del self.__connection
-
-def hash_generator(content):
-    m = hashlib.sha256()
-    m.update(content.encode())
-    return m.hexdigest()

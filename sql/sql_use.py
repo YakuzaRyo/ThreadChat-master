@@ -1,5 +1,6 @@
-import sqlite3
 import hashlib
+import sqlite3
+
 
 class Keys:
     def __init__(self):
@@ -57,7 +58,7 @@ class Keys:
         cur = con.cursor()
         cur.execute("UPDATE Keys set status=? where hash=?",self.__statement)
         con.commit()
-        print('Keys updated')
+        print('[Server] Keys updated')
 
     def strip_token(self, Hash: str):
         self.__token_delete(Hash)
