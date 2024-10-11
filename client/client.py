@@ -60,18 +60,13 @@ class Client(Cmd):
         """
         while self.__isLogin:
             # noinspection PyBroadException
-            print('start receiving message')
             try:
                 buffer = self.__socket.recv(1024).decode()
                 data_cs = json.loads(buffer)
-                if data_cs['C_type'] == 'login':
-                    pt = data_cs['sender_id']
-                    print(pt)
 
-                elif data_cs['C_type'] == 'Initialize':
-                    print('Receive from server with initialization')
+                if data_cs['C_type'] == 'Initialize':
                     self.__setMetaFlow_cs(C_type='Initialized')
-                    print('[Server]:', data_cs['sender_message'])
+                    print('[Server]', data_cs['sender_message'])
                     self.__socket.send(json.dumps(self.__cs_data_build()).encode())
 
                 elif data_cs['C_type'] == 'Token':
@@ -83,7 +78,6 @@ class Client(Cmd):
                     thread = threading.Thread(target=self.start,args=(port,))
                     thread.setDaemon(True)
                     thread.start()
-                print('[' + str(data_cs['sender_nickname']) + '(' + str(data_cs['sender_id']) + ')' + ']', data_cs['sender_message'])
             except Exception:
                 print('[Client] 无法从服务器获取数据')
                 exit(0)
@@ -113,7 +107,6 @@ class Client(Cmd):
         """
         nickname = args.split(' ')[0]
         self.__setMetaFlow_cs(C_type='login', sender_nickname=nickname)
-        print("User nickname:", self.__sender_nickname)
         # 将昵称发送给服务器，获取用户id
         self.__socket.send(json.dumps(self.__cs_data_build()).encode())
         # 尝试接受数据
@@ -121,12 +114,9 @@ class Client(Cmd):
         try:
             buffer = self.__socket.recv(1024).decode()
             data_cs = json.loads(buffer)
-            print(data_cs)
             if data_cs['sender_id']:
                 self.__setMetaFlow_cs(sender_id=data_cs['sender_id'],sender_nickname=nickname)
                 self.__isLogin = True
-                print('[Client] 成功登录到聊天室')
-
                 # 开启子线程用于接受数据
                 thread = threading.Thread(target=self.__receive_message_thread)
                 thread.setDaemon(True)
@@ -155,7 +145,7 @@ class Client(Cmd):
         """
         message = args
         # 显示自己发送的消息
-        print('[' + str(self.__sender_nickname) + '(' + str(self.__sender_id) + ')' + ']', message)
+        print('['+str(self.__sender_nickname) + ']', message)
         # 开启子线程用于发送数据
         thread = threading.Thread(target=self.__send_message_thread, args=(message,))
         thread.setDaemon(True)
