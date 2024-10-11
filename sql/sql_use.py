@@ -20,7 +20,7 @@ class Keys:
         cur.execute("INSERT INTO Keys(hash, token, key, compute_time) VALUES (?,?,?,datetime())", self.__statement)
         con.commit()
         self.__statement = None
-        print('Keys updated')
+        print('[Server] Keys updated')
 
     def __token_metas(self):
         """
@@ -48,7 +48,7 @@ class Keys:
         cur.execute("DELETE  from 'Keys' where hash=?",(self.__statement,))
         con.commit()
         self.__statement = None
-        print('Keys deleted')
+        print('[Server] Keys deleted')
 
     def status_update(self, status: str):
         self.__status = status
@@ -92,7 +92,7 @@ class Map:
         cur.execute("INSERT INTO Map(roomid, uid, compute_time) VALUES (?,?,datetime())", self.__statement)
         con.commit()
         self.__statement = None
-        print('Map added')
+        print('[Server] Map added')
 
     def map_update(self, room_id, uid):
         self.__room_id = room_id
@@ -176,7 +176,7 @@ class UserList:
         cur.execute("INSERT INTO Users(uid,nickname,compute_time) VALUES (?,?,datetime())", self.__statement)
         con.commit()
         self.__statement = None
-        print('User added')
+        print('[Server] User added')
 
     def __user_delete(self):
         """
@@ -189,7 +189,7 @@ class UserList:
             cur.execute("DELETE from Users where uid=?", (self.__statement,))
             con.commit()
             self.__statement = None
-            print('User deleted')
+            print('[Server] User deleted')
         else:
             self.__statement = self.__nickname
             con = sqlite3.connect('../KeyServer/data.db')
@@ -197,7 +197,7 @@ class UserList:
             cur.execute("DELETE from Users where nickname=?", (self.__statement,))
             con.commit()
             self.__statement = None
-            print('User deleted')
+            print('[Server] User deleted')
 
     def getUid(self):
         return self.__uid
@@ -221,7 +221,7 @@ class RoomList:
         cur.execute("INSERT INTO Rooms(roomid,port,compute_time) VALUES (?,?,datetime())", self.__statement)
         con.commit()
         self.__statement = None
-        print('Room added')
+        print('[Server] Room added')
 
     def __logRoomOut(self,room_id):
         self.__statement = room_id
@@ -230,7 +230,7 @@ class RoomList:
         cur.execute("DELETE from Rooms where roomid=?", (self.__statement,))
         con.commit()
         self.__statement = None
-        print('Room deleted')
+        print('[Server] Room deleted')
 
     def __room_metas(self):
         self.__statement = self.__room_id
