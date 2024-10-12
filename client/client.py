@@ -1,6 +1,6 @@
+import json
 import socket
 import threading
-import json
 import time
 from cmd import Cmd
 
@@ -25,9 +25,9 @@ class Client(Cmd):
         self.__message = None
         self.__isLogin = False
         self.reconnect_flag = 0
-        self.__type = None
 
-    def __cs_data_build(self):
+    @property
+    def __data_cs(self):
         data = {
             'C_type': self.__C_type,
             'sender_id': self.__sender_id,
@@ -52,8 +52,6 @@ class Client(Cmd):
                 elif i == 4:
                     self.__message = metaFlow[i]
 
-
-
     def __receive_message_thread(self):
         """
         接受消息线程
@@ -67,30 +65,24 @@ class Client(Cmd):
                 if data_cs['C_type'] == 'Initialize':
                     self.__setMetaFlow_cs(C_type='Initialized')
                     print('[Server]', data_cs['sender_message'])
-                    self.__socket.send(json.dumps(self.__cs_data_build()).encode())
+                    self.__socket.send(json.dumps(self.__data_cs).encode())
 
-                elif data_cs['C_type'] == 'Token':
-                    print('Use://',data_cs['message'], '//to join the chatroom')
+                elif data_cs['C_type'] == 'ChatRoom':
+                    print('[Client] Feature denied')
 
                 elif data_cs['C_type'] == 'goChat':
-                    port = data_cs['port']
-                    self.__socket.close()
-                    thread = threading.Thread(target=self.start,args=(port,))
-                    thread.setDaemon(True)
-                    thread.start()
+                    print('[Server] Use:', data_cs['token'], 'to join the chatroom')
+
             except Exception:
                 print('[Client] 无法从服务器获取数据')
                 exit(0)
 
-    def __send_message_thread(self, message):
+    def __sender_0(self):
         """
         发送消息线程
         :param message: 消息内容
         """
-        print('start sending message')
-        self.__setMetaFlow_cs(message=message)
-        self.__socket.send(json.dumps(self.__cs_data_build()).encode())
-        print('From send thread C_type:',self.__type)
+        self.__socket.send(json.dumps(self.__data_cs).encode())
         time.sleep(0.5)
 
     def start(self,host='127.0.0.1',port=8801):
@@ -108,7 +100,7 @@ class Client(Cmd):
         nickname = args.split(' ')[0]
         self.__setMetaFlow_cs(C_type='login', sender_nickname=nickname)
         # 将昵称发送给服务器，获取用户id
-        self.__socket.send(json.dumps(self.__cs_data_build()).encode())
+        self.__socket.send(json.dumps(self.__data_cs).encode())
         # 尝试接受数据
         # noinspection PyBroadException
         try:
@@ -167,10 +159,9 @@ class Client(Cmd):
         """
         创建聊天室
         """
-        message = self.__sender_nickname
-        self.__type = 'ChatRoom'
+        self.__setMetaFlow_cs(C_type='ChatRoom', sender_id=self.__sender_id, sender_nickname=self.__sender_nickname)
         # 开启子线程用于发送数据
-        thread = threading.Thread(target=self.__send_message_thread, args=(message,))
+        thread = threading.Thread(target=self.__sender_0)
         thread.setDaemon(True)
         thread.start()
 

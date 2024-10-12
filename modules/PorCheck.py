@@ -1,8 +1,7 @@
 # 用于分配聊天服务器端口
-import socket
-import random
 import multiprocessing
-
+import random
+import socket
 
 
 class PortCheck:
@@ -13,7 +12,6 @@ class PortCheck:
         self.__unavailable_ports = []
         self.__process_start()
         # self.__threads_start()
-        self.recommend_port = 0
         #self.__set_port()
         if flag:
             self.__debug()
@@ -69,7 +67,8 @@ class PortCheck:
         del self.__unavailable_ports
 
     def getRecommendedPort(self):
-        return self.__recommend_port
+        recommended_port = random.choice(self.__available_ports)
+        return recommended_port
 
     def __debug(self):
         print('Recommend Port:', self.__recommend_port)

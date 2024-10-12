@@ -1,12 +1,10 @@
 import json
 import os
-import signal
 import socket
 import threading
 import uuid
 
 import sql
-from modules import verify, SecurityCheck
 
 
 class FrontServer:
@@ -57,27 +55,7 @@ class FrontServer:
         except Exception:
             print('[Server] 无法接受数据:', connection.getsockname(), connection.fileno())
 
-    def __Close(self, pid):
-        os.kill(pid, signal.SIGINT)
-        print('Closing Chat Server:',pid)
-        self.__Function_mode = 0
 
-    def __timer(self, token, pid):
-        room_id = SecurityCheck.hash_generator(token)
-        V = verify.Verify(room_id)
-        self.__verification_result = V.verify()
-        passport = self.__verification_result[0]
-        if passport == 'Verified':
-            print('Token Verified')
-        else:
-            self.__Close(pid)
-            print('Token_id: ',room_id,' Not Verified, Room Closed')
-
-    def __task_timer(self):
-        for i in range(1, len(self.__token_list)):
-            token = self.__token_list[i]
-            pid = self.__pid_list[i]
-            self.__timer(token, pid)
 
     def run(self,host = '127.0.0.1', port = 8801):
         """
@@ -108,12 +86,14 @@ class FrontServer:
             thread1.start()
 
 
-class UserThread(FrontServer):
+class UserThread:
     def __init__(self,sender_id, sender_nickname, connection:socket):
         super().__init__()
         self.__sender_id = sender_id
         self.__sender_nickname = sender_nickname
         self.__connection:socket = connection
+        self.__connection_K:socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.__connection_C:socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.__S_type_list = ['Initialize', 'Key', 'Chat', 'ALL']
         self.__C_type_list = ['login', 'ChatRoom', 'Join', 'logout', 'goChat', 'Close', 'Initialize']
         self.__dst_port = 0
@@ -125,6 +105,7 @@ class UserThread(FrontServer):
         self.__server_message = None
         self.__S_type = None
         self.__C_type = None
+        self.__S_data_ss = None
         """
         data{
             S_type: 服务类型,
@@ -136,7 +117,8 @@ class UserThread(FrontServer):
             room_id: 房间id(生成自token),
             pid: 房间进程
             sender_nickname: 用户昵称,
-            message: 用户使用send指令发送的信息
+            sender_message: 用户使用send指令发送的信息,
+            server_message: 服务器连接状态码
             }
                 """
 
@@ -147,16 +129,43 @@ class UserThread(FrontServer):
         print('[Server] First connect with',self.__sender_id)
         self.__connection.send(json.dumps(data_cs).encode())
 
-    def __Forward(self, data_ss):
+    def __F_K(self, data_ss):
         """
         端口转发
         """
-        rs = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        rs.connect(('localhost', self.__dst_port))
-        rs.sendall(data_ss)
-        data_ss = rs.recv(1024)
-        rs.listen(5)
-        return data_ss
+        self.__connection_K.connect(('localhost', 8888))
+        self.__connection_K.send(json.dumps(data_ss).encode())
+
+    def __F_C(self, data_ss):
+        self.__connection_C.connect(('localhost', self.__dst_port))
+        self.__connection_C.send(json.dumps(data_ss).encode())
+
+    def __R_K(self):
+        # try:
+            while True:
+                buffer = self.__connection_K.recv(1024).decode()
+                data_ss = json.loads(buffer)
+                if data_ss['server_message'] == '200':
+                    print('[KeyServer] Connected')
+                    data_ss['C_type'] = 'ChatRoom'
+                    self.__connection_K.send(json.dumps(data_ss).encode())
+                elif data_ss['server_message'] == 'Connected':
+                    print('[KeyServer]',data_ss)
+                    self.__setMetaFlow(sender_id=data_ss['sender_id'],port=data_ss['port'],isActive=data_ss['isActive'],
+                                       token=data_ss['token'],room_id=data_ss['room_id'],sender_message=['sender_message'],server_message=data_ss['server_message'])
+                    if data_ss['token']:
+                        self.__type_match(1,4)
+                        print('[KeyServer]',self.__data_cs)
+                        self.__connection.send(json.dumps(self.__data_cs).encode())
+
+                else:
+                    print('[Server] Wrong')
+        # except:
+        #     print('[Server] Error')
+
+
+    def __R_C(self):
+        print()
 
     def __type_match(self, s=0,c=0):
         self.__S_type = self.__S_type_list[s]
@@ -222,7 +231,7 @@ class UserThread(FrontServer):
         """
         用户子线程
         """
-        thread = threading.Thread(target=self.__sender_0, args=(self.__sender_id, '用户 ' + self.__sender_nickname + ' 已连接到密钥服务器'))
+        thread = threading.Thread(target=self.__sender_0, args=(self.__sender_id, '用户 ' + self.__sender_nickname + ' 已连接到前端服务器'))
         thread.setDaemon(True)
         thread.start()
 
@@ -241,11 +250,10 @@ class UserThread(FrontServer):
                     """
                     self.__setMetaFlow(port=8888)
                     self.__type_match(1, 1)
-                    data_ss = self.__data_ss
-                    self.__Forward(data_ss)
-                    data_cs = self.__Forward(data_ss)
-                    self.__connection.send(json.dumps(data_cs).encode())
-
+                    self.__F_K(self.__data_ss)
+                    thread = threading.Thread(target=self.__R_K)
+                    thread.setDaemon(True)
+                    thread.start()
                 elif data_cs['C_type'] == 'Join':
                     """
                     接收join信息

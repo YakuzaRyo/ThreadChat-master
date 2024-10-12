@@ -161,6 +161,12 @@ class UserList:
         self.__user_metas()
         self.__user_delete()
 
+
+    def search_uid(self,nickname:str):
+        self.__nickname = nickname
+        self.__user_metas()
+        return self.__uid
+
     def __user_metas(self):
         self.__statement = self.__nickname
         con = sqlite3.connect('../KeyServer/data.db')
