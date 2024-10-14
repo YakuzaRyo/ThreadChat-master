@@ -70,7 +70,7 @@ class FrontServer:
         self.__uuids.clear()
         self.__connections.append(None)
         self.__uuids.append(None)
-        self.__nicknames.append('[System]')
+        self.__nicknames.append('System')
         self.__pid_list.append(os.getpid())
         # 开始侦听
         while True:
@@ -84,7 +84,6 @@ class FrontServer:
 
 class UserThread:
     def __init__(self,sender_id, sender_nickname, connection:socket):
-        super().__init__()
         self.__sender_id = sender_id
         self.__sender_nickname = sender_nickname
         self.__connection:socket = connection
