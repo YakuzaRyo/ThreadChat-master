@@ -50,3 +50,5 @@ feature确认
 - ban掉了用户接收 ’ChatRoom‘ 模式的部分
 - 提升了部分程序安全性，包括发送函数重命名， 分离用户初始动作和后续的信息收发
 - 由于还在debug阶段，用户信息收发主体的错误文本可读性依旧很高，这部分请通融
+
+[流程图 || 分享密码:ssss](https://boardmix.cn/app/share/CAE.CIiKngwgASoQy8Vz3-jClB3qam4Hb3WaKzAGQAE/dr3QyY)

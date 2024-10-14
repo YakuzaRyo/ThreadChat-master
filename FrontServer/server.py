@@ -55,8 +55,6 @@ class FrontServer:
         except Exception:
             print('[Server] 无法接受数据:', connection.getsockname(), connection.fileno())
 
-
-
     def run(self,host = '127.0.0.1', port = 8801):
         """
         启动服务器
@@ -81,9 +79,7 @@ class FrontServer:
             thread = threading.Thread(target=self.__waitForLogin, args=(connection,))
             thread.setDaemon(True)
             thread.start()
-            thread1 = threading.Timer(870, self.__task_timer)
-            thread1.setDaemon(True)
-            thread1.start()
+
 
 
 class UserThread:

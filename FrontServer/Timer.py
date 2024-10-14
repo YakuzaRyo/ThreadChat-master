@@ -1,5 +1,6 @@
 import os
 import signal
+import socket
 
 import sql.sql_use
 from modules import verify, SecurityCheck
@@ -8,6 +9,7 @@ from modules import verify, SecurityCheck
 class Timer:
     def __init__(self):
         self.__countdown = 30  # min
+        self.__timer_connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.__token_list = []
         self.__pid_list = []
         self.__verification_result = []
@@ -40,4 +42,6 @@ class Timer:
             pid = self.__pid_list[i]
             self.__timer(token, pid)
 
-    def run_timer(self):
+    def run_timer(self, host='127.0.0.1', port=8802):
+        self.__timer_connection.bind((host, port))
+        self.__timer_connection.listen()
