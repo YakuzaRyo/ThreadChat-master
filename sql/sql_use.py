@@ -216,6 +216,7 @@ class RoomList:
         self.__port = None
         self.__isActive = None
         self.__room_exist = None
+        self.__room_list = []
 
     def logRoom(self, room_id,port):
         self.__room_id = room_id
@@ -251,6 +252,14 @@ class RoomList:
         self.__isActive = self.debug[0][2]
         self.__statement = None
 
+    def __pull_rooms(self):
+        con = sqlite3.connect('../KeyServer/data.db')
+        cur = con.cursor()
+        cur.execute("SELECT roomid FROM Rooms")
+        List = cur.fetchall()
+        print(List)
+        for room_id in List:
+            self.__room_list.append(room_id[0])
 
     def find_room(self,room_id):
         self.__room_id = room_id
@@ -281,3 +290,8 @@ class RoomList:
 
     def getDebug(self):
         return self.debug
+
+    @property
+    def room_list(self):
+        self.__pull_rooms()
+        return self.__room_list
